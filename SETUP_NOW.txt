@@ -1,0 +1,46 @@
+╔══════════════════════════════════════════════════════════════╗
+║                  FIX "BUCKET NOT FOUND" ERROR                ║
+║                        (2 MINUTES)                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+STEP 1: Open Supabase
+→ Go to: https://supabase.com/dashboard
+→ Select your project
+
+STEP 2: Open SQL Editor
+→ Click "SQL Editor" in sidebar
+→ Click "New Query"
+
+STEP 3: Run Setup SQL
+→ Open file: scripts/complete-messaging-setup.sql
+→ Copy ALL content (Ctrl+A, Ctrl+C)
+→ Paste into SQL Editor
+→ Click "Run" button
+
+STEP 4: Test Upload
+→ Go back to your app
+→ Try uploading an image
+→ Should work now! ✅
+
+═══════════════════════════════════════════════════════════════
+
+WHAT IT DOES:
+✓ Creates storage bucket "message-attachments"
+✓ Adds attachment columns to messages table
+✓ Sets up security policies
+✓ Enables file uploads in conversations
+
+═══════════════════════════════════════════════════════════════
+
+SUPPORTED FILES:
+• Images: JPEG, PNG, GIF, WebP (max 5MB)
+• Docs: PDF, Word, Excel, ZIP, TXT (max 10MB)
+
+═══════════════════════════════════════════════════════════════
+
+NEED HELP?
+→ Read: FIX_BUCKET_ERROR.md
+→ Read: QUICK_SETUP.md
+→ Test: Open scripts/test-storage.html in browser
+
+═══════════════════════════════════════════════════════════════

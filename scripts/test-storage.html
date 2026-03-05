@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Storage Setup</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a2c36;
+            color: white;
+        }
+        .container {
+            background: #2d3f47;
+            padding: 30px;
+            border-radius: 10px;
+        }
+        h1 { color: #5fa4c3; }
+        button {
+            background: #5fa4c3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #4a8fb5; }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background: #1a2c36;
+        }
+        .success { border-left: 4px solid #4ade80; }
+        .error { border-left: 4px solid #ef4444; }
+        .info { border-left: 4px solid #3b82f6; }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a2c36;
+            border: 1px solid #3a4f5a;
+            border-radius: 5px;
+            color: white;
+        }
+        pre {
+            background: #1a2c36;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Storage Setup Test</h1>
+        <p>This page tests your Supabase storage configuration for message attachments.</p>
+        
+        <div id="config" class="result info">
+            <strong>Configuration:</strong>
+            <pre id="configDetails">Loading...</pre>
+        </div>
+
+        <h2>Step 1: Check Bucket</h2>
+        <button onclick="checkBucket()">Check if Bucket Exists</button>
+        <div id="bucketResult"></div>
+
+        <h2>Step 2: Test Upload</h2>
+        <input type="file" id="fileInput" accept="image/*">
+        <button onclick="testUpload()">Test Upload</button>
+        <div id="uploadResult"></div>
+
+        <h2>Step 3: Test Download</h2>
+        <button onclick="testDownload()">Test Download</button>
+        <div id="downloadResult"></div>
+    </div>
+
+    <script>
+        // Load from your .env file
+        const SUPABASE_URL = 'https://zapkszmkuwcalkjnlzfa.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcGtzem1rdXdjYWxram5semZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MDk1MDksImV4cCI6MjA4NzA4NTUwOX0.UxRRWrC-hCK-HD3qDmDUphumGleEFLhK4Kn0836A6No';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Show config
+        document.getElementById('configDetails').textContent = 
+            `URL: ${SUPABASE_URL}\nKey: ${SUPABASE_KEY.substring(0, 20)}...`;
+
+        let uploadedFilePath = null;
+
+        async function checkBucket() {
+            const result = document.getElementById('bucketResult');
+            result.innerHTML = '<div class="result info">Checking...</div>';
+
+            try {
+                const { data, error } = await supabase.storage.listBuckets();
+                
+                if (error) {
+                    result.innerHTML = `<div class="result error">
+                        <strong>❌ Error:</strong> ${error.message}
+                    </div>`;
+                    return;
+                }
+
+                const bucket = data.find(b => b.name === 'message-attachments');
+                
+                if (bucket) {
+                    result.innerHTML = `<div class="result success">
+                        <strong>✅ Bucket Found!</strong><br>
+                        Name: ${bucket.name}<br>
+                        Public: ${bucket.public ? 'Yes' : 'No'}<br>
+                        Created: ${new Date(bucket.created_at).toLocaleString()}
+                    </div>`;
+                } else {
+                    result.innerHTML = `<div class="result error">
+                        <strong>❌ Bucket Not Found</strong><br>
+                        The "message-attachments" bucket doesn't exist.<br>
+                        Please run the SQL setup script.
+                    </div>`;
+                }
+            } catch (err) {
+                result.innerHTML = `<div class="result error">
+                    <strong>❌ Error:</strong> ${err.message}
+                </div>`;
+            }
+        }
+
+        async function testUpload() {
+            const result = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                result.innerHTML = '<div class="result error">Please select a file first</div>';
+                return;
+            }
+
+            result.innerHTML = '<div class="result info">Uploading...</div>';
+
+            try {
+                // You need to be authenticated to upload
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    result.innerHTML = `<div class="result error">
+                        <strong>❌ Not Authenticated</strong><br>
+                        You need to be logged in to test uploads.<br>
+                        Please log in to your app first.
+                    </div>`;
+                    return;
+                }
+
+                const fileName = `${user.id}/${Date.now()}-${file.name}`;
+                uploadedFilePath = fileName;
+
+                const { data, error } = await supabase.storage
+                    .from('message-attachments')
+                    .upload(fileName, file);
+
+                if (error) {
+                    result.innerHTML = `<div class="result error">
+                        <strong>❌ Upload Failed:</strong> ${error.message}<br><br>
+                        ${error.message.includes('Bucket not found') ? 
+                            'Run the SQL setup script to create the bucket.' : 
+                            error.message.includes('row-level security') ?
+                            'Storage policies not configured. Run the SQL setup script.' :
+                            'Check the error message above.'}
+                    </div>`;
+                } else {
+                    const { data: urlData } = supabase.storage
+                        .from('message-attachments')
+                        .getPublicUrl(data.path);
+
+                    result.innerHTML = `<div class="result success">
+                        <strong>✅ Upload Successful!</strong><br>
+                        Path: ${data.path}<br>
+                        URL: <a href="${urlData.publicUrl}" target="_blank" style="color: #5fa4c3">${urlData.publicUrl}</a>
+                    </div>`;
+                }
+            } catch (err) {
+                result.innerHTML = `<div class="result error">
+                    <strong>❌ Error:</strong> ${err.message}
+                </div>`;
+            }
+        }
+
+        async function testDownload() {
+            const result = document.getElementById('downloadResult');
+
+            if (!uploadedFilePath) {
+                result.innerHTML = '<div class="result error">Please upload a file first</div>';
+                return;
+            }
+
+            result.innerHTML = '<div class="result info">Testing download...</div>';
+
+            try {
+                const { data, error } = await supabase.storage
+                    .from('message-attachments')
+                    .download(uploadedFilePath);
+
+                if (error) {
+                    result.innerHTML = `<div class="result error">
+                        <strong>❌ Download Failed:</strong> ${error.message}
+                    </div>`;
+                } else {
+                    result.innerHTML = `<div class="result success">
+                        <strong>✅ Download Successful!</strong><br>
+                        File size: ${data.size} bytes<br>
+                        Type: ${data.type}
+                    </div>`;
+                }
+            } catch (err) {
+                result.innerHTML = `<div class="result error">
+                    <strong>❌ Error:</strong> ${err.message}
+                </div>`;
+            }
+        }
+
+        // Auto-check bucket on load
+        window.onload = () => {
+            checkBucket();
+        };
+    </script>
+</body>
+</html>

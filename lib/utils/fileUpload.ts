@@ -86,7 +86,23 @@ export async function uploadMessageAttachment(
 
     if (error) {
       console.error('Upload error:', error);
-      return { url: '', error: 'Failed to upload file' };
+      
+      // Provide specific error messages
+      if (error.message.includes('Bucket not found')) {
+        return { 
+          url: '', 
+          error: 'Storage not configured. Please run the SQL setup script.' 
+        };
+      }
+      
+      if (error.message.includes('new row violates row-level security')) {
+        return { 
+          url: '', 
+          error: 'Permission denied. Please check storage policies.' 
+        };
+      }
+      
+      return { url: '', error: `Upload failed: ${error.message}` };
     }
 
     // Get public URL
