@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import ErrorDisplay from '@/components/ErrorDisplay';
+import AuthenticatedImage from '@/components/AuthenticatedImage';
 import { supabase } from '@/lib/supabase';
 import { getConversations, getMessages, sendMessage, markMessagesAsRead, getOrCreateConversation, deleteConversation } from '@/lib/api/messaging';
 import { subscribeToMessages, unsubscribeFromMessages, subscribeToConversationUpdates } from '@/lib/api/realtime';
@@ -467,26 +468,50 @@ function MessagesPageContent() {
                       isOwn 
                         ? 'bg-[#5fa4c3] text-white rounded-2xl rounded-tr-none' 
                         : 'bg-[#2d3f47] text-white rounded-2xl rounded-tl-none border border-[#3a4f5a]'
-                    } px-4 py-2 max-w-xs`}>
+                    } ${message.attachment_type === 'image' ? 'p-1' : 'px-4 py-2'} max-w-xs`}>
                       {/* Attachment */}
                       {message.attachment_url && message.attachment_type === 'image' && (
-                        <div className="mb-2">
-                          <img 
-                            src={message.attachment_url} 
+                        <div className={message.content ? 'mb-2' : ''}>
+                          <AuthenticatedImage
+                            storagePath={message.attachment_url}
                             alt={message.attachment_name || 'Image'}
-                            className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => window.open(message.attachment_url!, '_blank')}
+                            className="rounded-lg max-w-full w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              // Open in new tab with download
+                              const link = document.createElement('a');
+                              link.href = message.attachment_url!;
+                              link.target = '_blank';
+                              link.click();
+                            }}
                           />
                         </div>
                       )}
                       {message.attachment_url && message.attachment_type === 'file' && (
-                        <a 
-                          href={message.attachment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-2 mb-2 p-2 rounded ${
+                        <button
+                          onClick={async () => {
+                            try {
+                              // Download file with authentication
+                              const { data, error } = await supabase.storage
+                                .from('message-attachments')
+                                .download(message.attachment_url!);
+                              
+                              if (error) throw error;
+                              
+                              // Create download link
+                              const url = URL.createObjectURL(data);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = message.attachment_name || 'file';
+                              link.click();
+                              URL.revokeObjectURL(url);
+                            } catch (err) {
+                              console.error('Download error:', err);
+                              alert('Failed to download file');
+                            }
+                          }}
+                          className={`flex items-center gap-2 ${message.content ? 'mb-2' : ''} p-2 rounded ${
                             isOwn ? 'bg-white/10' : 'bg-[#1a2c36]'
-                          } hover:opacity-80 transition-opacity`}
+                          } hover:opacity-80 transition-opacity w-full text-left`}
                         >
                           <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
@@ -496,11 +521,14 @@ function MessagesPageContent() {
                             <p className="text-xs font-medium truncate">{message.attachment_name}</p>
                             <p className="text-xs opacity-70">{message.attachment_size ? formatFileSize(message.attachment_size) : ''}</p>
                           </div>
-                        </a>
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
                       )}
                       {/* Text content */}
-                      {message.content && <p className="text-sm">{message.content}</p>}
-                      <p className={`text-xs mt-1 text-right ${isOwn ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {message.content && <p className={`text-sm ${message.attachment_type === 'image' ? 'px-3 pb-2' : ''}`}>{message.content}</p>}
+                      <p className={`text-xs mt-1 text-right ${isOwn ? 'text-blue-100' : 'text-gray-400'} ${message.attachment_type === 'image' ? 'px-3 pb-2' : ''}`}>
                         {formatTimestamp(message.created_at)}
                       </p>
                     </div>

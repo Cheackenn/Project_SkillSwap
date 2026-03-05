@@ -105,12 +105,12 @@ export async function uploadMessageAttachment(
       return { url: '', error: `Upload failed: ${error.message}` };
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('message-attachments')
-      .getPublicUrl(data.path);
-
-    return { url: urlData.publicUrl };
+    // For private buckets, we need to use the full path that can be accessed with auth
+    // The URL will be constructed on the client side with proper authentication
+    const filePath = data.path;
+    
+    // Return the storage path - the client will handle authentication
+    return { url: filePath };
   } catch (err) {
     console.error('Unexpected upload error:', err);
     return { url: '', error: 'An unexpected error occurred' };
