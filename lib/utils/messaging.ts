@@ -45,6 +45,36 @@ export function getDisplayName(user: UserProfile | null): string {
          user.email.split('@')[0];
 }
 
+// Format message preview for conversation list
+export function formatMessagePreview(
+  message: {
+    content: string;
+    sender_id: string;
+    attachment_type: 'image' | 'file' | null;
+    attachment_name: string | null;
+  } | null,
+  currentUserId: string
+): string {
+  if (!message) return 'No messages yet';
+  
+  const isOwn = message.sender_id === currentUserId;
+  const prefix = isOwn ? 'You: ' : '';
+  
+  // If there's an attachment
+  if (message.attachment_type) {
+    if (message.attachment_type === 'image') {
+      const imageText = '📷 Photo';
+      return message.content ? `${prefix}${imageText}` : `${prefix}${imageText}`;
+    } else {
+      const fileText = '📎 File';
+      return message.content ? `${prefix}${fileText}` : `${prefix}${fileText}`;
+    }
+  }
+  
+  // Just text message
+  return `${prefix}${message.content}`;
+}
+
 // User ID validation (UUID v4 format)
 export function validateUserId(userId: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

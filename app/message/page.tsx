@@ -10,7 +10,7 @@ import AuthenticatedImage from '@/components/AuthenticatedImage';
 import { supabase } from '@/lib/supabase';
 import { getConversations, getMessages, sendMessage, markMessagesAsRead, getOrCreateConversation, deleteConversation } from '@/lib/api/messaging';
 import { subscribeToMessages, unsubscribeFromMessages, subscribeToConversationUpdates } from '@/lib/api/realtime';
-import { formatTimestamp, getDisplayName, validateMessageContent } from '@/lib/utils/messaging';
+import { formatTimestamp, getDisplayName, validateMessageContent, formatMessagePreview } from '@/lib/utils/messaging';
 import { ConversationWithDetails, MessageWithSender } from '@/lib/types/messaging';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { uploadMessageAttachment, validateFile, getFileType, formatFileSize } from '@/lib/utils/fileUpload';
@@ -702,8 +702,8 @@ function MessagesPageContent() {
                             {conversation.last_message ? formatTimestamp(conversation.last_message.created_at) : ''}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 text-left">
-                          {conversation.last_message?.content || 'No messages yet'}
+                        <p className="text-xs text-gray-400 text-left truncate">
+                          {formatMessagePreview(conversation.last_message, currentUserId)}
                         </p>
                       </div>
                     </button>

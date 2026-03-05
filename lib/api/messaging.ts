@@ -110,7 +110,7 @@ export async function getConversations(
         // Get last message
         const { data: lastMessage } = await supabase
           .from('messages')
-          .select('content, created_at')
+          .select('content, created_at, sender_id, attachment_type, attachment_name')
           .eq('conversation_id', conv.id)
           .order('created_at', { ascending: false })
           .limit(1)

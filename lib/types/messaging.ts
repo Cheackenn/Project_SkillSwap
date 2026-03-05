@@ -88,6 +88,9 @@ export interface ConversationWithDetails {
   last_message: {
     content: string;
     created_at: string;
+    sender_id: string;
+    attachment_type: 'image' | 'file' | null;
+    attachment_name: string | null;
   } | null;
   unread_count: number;
 }
