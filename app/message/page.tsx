@@ -549,9 +549,9 @@ function MessagesPageContent() {
               </div>
             )}
             
-            {charCount > 5000 && (
+            {messageText.length > 5000 && (
               <div className="text-red-400 text-xs mb-2">
-                Message too long ({charCount}/5000 characters)
+                Message too long ({messageText.length}/5000 characters)
               </div>
             )}
             
