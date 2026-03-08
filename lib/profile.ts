@@ -30,6 +30,7 @@ export interface UpdateProfileInput {
   last_name: string
   username: string
   bio?: string
+  skills_to_teach?: string[]
   skills_to_teach_raw?: string
   avatar_url?: string | null
 }
@@ -88,8 +89,13 @@ export async function updateProfile(
   // 2. Derive role from the email domain
   const role = deriveRole(userEmail)
 
-  // 3. Parse raw comma-separated skill strings into arrays
-  const skills_to_teach = parseSkills(input.skills_to_teach_raw)
+  // 3. Parse skills - accept either array or raw string
+  let skills_to_teach: string[] = []
+  if (input.skills_to_teach) {
+    skills_to_teach = input.skills_to_teach
+  } else if (input.skills_to_teach_raw) {
+    skills_to_teach = parseSkills(input.skills_to_teach_raw)
+  }
 
   // 4. Build the payload to upsert
   const payload = {

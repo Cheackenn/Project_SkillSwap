@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
+import SkillsSelector from '@/components/SkillsSelector';
 import { updateProfile, fetchProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
@@ -14,8 +15,8 @@ export default function EditProfilePage() {
     lastName: '',
     username: '',
     bio: '',
-    skillsToTeach: '',
   });
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
@@ -34,8 +35,8 @@ export default function EditProfilePage() {
           lastName: profile.last_name || '',
           username: profile.username || '',
           bio: profile.bio || '',
-          skillsToTeach: profile.skills_to_teach?.join(', ') || '',
         });
+        setSelectedSkills(profile.skills_to_teach || []);
         setCurrentAvatarUrl(profile.avatar_url);
       }
       setFetching(false);
@@ -144,7 +145,7 @@ export default function EditProfilePage() {
       last_name: formData.lastName,
       username: formData.username,
       bio: formData.bio,
-      skills_to_teach_raw: formData.skillsToTeach,
+      skills_to_teach: selectedSkills,
       avatar_url: avatarUrl,
     });
 
@@ -253,14 +254,14 @@ export default function EditProfilePage() {
               className="w-full px-4 py-3 rounded-lg bg-[#2d3f47] text-white placeholder-gray-500 border border-[#3a4f5a] focus:outline-none focus:border-[#5fa4c3] resize-none"
             />
 
-            <input
-              type="text"
-              name="skillsToTeach"
-              placeholder="Skills you can teach (comma-separated)"
-              value={formData.skillsToTeach}
-              onChange={handleChange}
-              className="w-full px-4 py-3 rounded-lg bg-[#2d3f47] text-white placeholder-gray-500 border border-[#3a4f5a] focus:outline-none focus:border-[#5fa4c3]"
-            />
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Skills you can teach</label>
+              <SkillsSelector
+                selectedSkills={selectedSkills}
+                onChange={setSelectedSkills}
+                placeholder="Select or add skills"
+              />
+            </div>
           </div>
 
           {error && (

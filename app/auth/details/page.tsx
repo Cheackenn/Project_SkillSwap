@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import SkillsSelector from '@/components/SkillsSelector';
 
 export default function DetailsPage() {
   const router = useRouter();
@@ -10,8 +11,8 @@ export default function DetailsPage() {
     firstName: '',
     lastName: '',
     username: '',
-    teachingSkills: '',
   });
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,10 +42,7 @@ export default function DetailsPage() {
         first_name:     formData.firstName.trim(),
         last_name:      formData.lastName.trim(),
         username:       formData.username.trim().toLowerCase(),
-        skills_to_teach: formData.teachingSkills
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        skills_to_teach: selectedSkills,
         updated_at: new Date().toISOString(),
       })
       .eq('id', session.user.id);
@@ -104,14 +102,15 @@ export default function DetailsPage() {
             className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#5fa4c3]"
             required
           />
-          <input
-            type="text"
-            name="teachingSkills"
-            placeholder="Skills you can teach (comma-separated)"
-            value={formData.teachingSkills}
-            onChange={handleChange}
-            className="w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#5fa4c3]"
-          />
+          
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Skills you can teach</label>
+            <SkillsSelector
+              selectedSkills={selectedSkills}
+              onChange={setSelectedSkills}
+              placeholder="Select or add skills"
+            />
+          </div>
 
           {error && (
             <p className="text-red-400 text-sm text-center">{error}</p>

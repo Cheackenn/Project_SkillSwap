@@ -96,18 +96,7 @@ export default function RegisterPage() {
     setSubmitError(null);
     setLoading(true);
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase.auth.signInWithPassword({
-      email,
-      password: 'test', // dummy password to check if user exists
-    });
-
-    if (existingUser?.user) {
-      setLoading(false);
-      setSubmitError('This email is already registered. Please log in instead.');
-      return;
-    }
-
+    // Try to sign up
     const { data, error: signUpError } = await supabase.auth.signUp({ 
       email, 
       password,
@@ -121,11 +110,18 @@ export default function RegisterPage() {
         setSubmitError(
           'Too many verification emails sent. Please wait a few minutes before trying again, or contact support if this persists.'
         );
-      } else if (signUpError.message.toLowerCase().includes('already registered')) {
-        setSubmitError('This email is already registered. Please log in instead.');
+      } else if (signUpError.message.toLowerCase().includes('already registered') || 
+                 signUpError.message.toLowerCase().includes('user already registered')) {
+        setSubmitError('This email already exists. Please log in instead.');
       } else {
         setSubmitError(signUpError.message);
       }
+      return;
+    }
+
+    // Check if user already exists (Supabase sometimes returns success even if user exists)
+    if (data?.user && data.user.identities && data.user.identities.length === 0) {
+      setSubmitError('This email already exists. Please log in instead.');
       return;
     }
 
