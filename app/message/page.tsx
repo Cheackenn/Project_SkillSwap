@@ -247,11 +247,11 @@ function MessagesPageContent() {
       return;
     }
 
-    // If multiple files, send each as a separate message
+    // Upload all files and collect attachment data
+    const attachments: Array<{ url: string; type: 'image' | 'file'; name: string; size: number }> = [];
+    
     if (selectedFiles.length > 0) {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        
+      for (const file of selectedFiles) {
         // Upload file
         const { url, error: uploadError } = await uploadMessageAttachment(file, currentUserId);
         
@@ -264,41 +264,28 @@ function MessagesPageContent() {
 
         const attachmentType = getFileType(file.type);
         
-        // Send message with attachment
-        // Include text only with the first file
-        const content = i === 0 ? messageText : '';
-        
-        const { error: sendError } = await sendMessage(
-          conversationId,
-          currentUserId,
-          content,
+        attachments.push({
           url,
-          attachmentType,
-          file.name,
-          file.size
-        );
-
-        if (sendError) {
-          setMessageError(`Failed to send ${file.name}: ${sendError}`);
-          setSending(false);
-          setUploading(false);
-          return;
-        }
+          type: attachmentType,
+          name: file.name,
+          size: file.size,
+        });
       }
-    } else {
-      // Just text message, no attachments
-      const { error: sendError } = await sendMessage(
-        conversationId,
-        currentUserId,
-        messageText
-      );
+    }
 
-      if (sendError) {
-        setMessageError(sendError);
-        setSending(false);
-        setUploading(false);
-        return;
-      }
+    // Send single message with all attachments
+    const { error: sendError } = await sendMessage(
+      conversationId,
+      currentUserId,
+      messageText,
+      attachments.length > 0 ? attachments : undefined
+    );
+
+    if (sendError) {
+      setMessageError(sendError);
+      setSending(false);
+      setUploading(false);
+      return;
     }
 
     setUploading(false);
@@ -519,73 +506,130 @@ function MessagesPageContent() {
             ) : (
               messages.map((message) => {
                 const isOwn = message.sender_id === currentUserId;
+                const hasAttachments = message.attachments && message.attachments.length > 0;
+                const hasLegacyAttachment = message.attachment_url && message.attachment_type;
+                
+                // Combine legacy and new attachments
+                const allAttachments = [
+                  ...(message.attachments || []),
+                  ...(hasLegacyAttachment ? [{
+                    url: message.attachment_url!,
+                    type: message.attachment_type!,
+                    name: message.attachment_name || 'file',
+                    size: message.attachment_size || 0,
+                  }] : [])
+                ];
+                
+                const images = allAttachments.filter(a => a.type === 'image');
+                const files = allAttachments.filter(a => a.type === 'file');
+                
                 return (
                   <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className={`${
                       isOwn 
                         ? 'bg-[#5fa4c3] text-white rounded-2xl rounded-tr-none' 
                         : 'bg-[#2d3f47] text-white rounded-2xl rounded-tl-none border border-[#3a4f5a]'
-                    } ${message.attachment_type === 'image' ? 'p-1' : 'px-4 py-2'} max-w-xs`}>
-                      {/* Attachment */}
-                      {message.attachment_url && message.attachment_type === 'image' && (
-                        <div className={message.content ? 'mb-2' : ''}>
-                          <AuthenticatedImage
-                            storagePath={message.attachment_url}
-                            alt={message.attachment_name || 'Image'}
-                            className="rounded-lg max-w-full w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => {
-                              // Open in new tab with download
-                              const link = document.createElement('a');
-                              link.href = message.attachment_url!;
-                              link.target = '_blank';
-                              link.click();
-                            }}
-                          />
+                    } max-w-xs overflow-hidden`}>
+                      
+                      {/* Multiple Images in Collage */}
+                      {images.length > 0 && (
+                        <div className={`${
+                          images.length === 1 ? 'p-1' :
+                          images.length === 2 ? 'grid grid-cols-2 gap-0.5 p-1' :
+                          images.length === 3 ? 'grid grid-cols-2 gap-0.5 p-1' :
+                          'grid grid-cols-2 gap-0.5 p-1'
+                        }`}>
+                          {images.map((img, idx) => (
+                            <div 
+                              key={idx}
+                              className={`${
+                                images.length === 1 ? '' :
+                                images.length === 3 && idx === 0 ? 'col-span-2' :
+                                ''
+                              } relative`}
+                            >
+                              <AuthenticatedImage
+                                storagePath={img.url}
+                                alt={img.name}
+                                className={`rounded ${
+                                  images.length === 1 ? 'w-full' : 'w-full h-32 object-cover'
+                                } cursor-pointer hover:opacity-90 transition-opacity`}
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = img.url;
+                                  link.target = '_blank';
+                                  link.click();
+                                }}
+                              />
+                              {/* Show count badge for 4+ images on last image */}
+                              {images.length > 4 && idx === 3 && (
+                                <div className="absolute inset-0 bg-black/60 rounded flex items-center justify-center">
+                                  <span className="text-white text-2xl font-bold">+{images.length - 4}</span>
+                                </div>
+                              )}
+                            </div>
+                          )).slice(0, 4)}
                         </div>
                       )}
-                      {message.attachment_url && message.attachment_type === 'file' && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              // Download file with authentication
-                              const { data, error } = await supabase.storage
-                                .from('message-attachments')
-                                .download(message.attachment_url!);
-                              
-                              if (error) throw error;
-                              
-                              // Create download link
-                              const url = URL.createObjectURL(data);
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.download = message.attachment_name || 'file';
-                              link.click();
-                              URL.revokeObjectURL(url);
-                            } catch (err) {
-                              console.error('Download error:', err);
-                              alert('Failed to download file');
-                            }
-                          }}
-                          className={`flex items-center gap-2 ${message.content ? 'mb-2' : ''} p-2 rounded ${
-                            isOwn ? 'bg-white/10' : 'bg-[#1a2c36]'
-                          } hover:opacity-80 transition-opacity w-full text-left`}
-                        >
-                          <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                            <path d="M14 2v6h6"/>
-                          </svg>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{message.attachment_name}</p>
-                            <p className="text-xs opacity-70">{message.attachment_size ? formatFileSize(message.attachment_size) : ''}</p>
-                          </div>
-                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
+                      
+                      {/* Files */}
+                      {files.length > 0 && (
+                        <div className={`${images.length > 0 ? 'px-3 pb-2' : 'p-3'} space-y-2`}>
+                          {files.map((file, idx) => (
+                            <button
+                              key={idx}
+                              onClick={async () => {
+                                try {
+                                  const { data, error } = await supabase.storage
+                                    .from('message-attachments')
+                                    .download(file.url);
+                                  
+                                  if (error) throw error;
+                                  
+                                  const url = URL.createObjectURL(data);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = file.name;
+                                  link.click();
+                                  URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  console.error('Download error:', err);
+                                  alert('Failed to download file');
+                                }
+                              }}
+                              className={`flex items-center gap-2 p-2 rounded ${
+                                isOwn ? 'bg-white/10' : 'bg-[#1a2c36]'
+                              } hover:opacity-80 transition-opacity w-full text-left`}
+                            >
+                              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                                <path d="M14 2v6h6"/>
+                              </svg>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{file.name}</p>
+                                <p className="text-xs opacity-70">{formatFileSize(file.size)}</p>
+                              </div>
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                            </button>
+                          ))}
+                        </div>
                       )}
+                      
                       {/* Text content */}
-                      {message.content && <p className={`text-sm ${message.attachment_type === 'image' ? 'px-3 pb-2' : ''}`}>{message.content}</p>}
-                      <p className={`text-xs mt-1 text-right ${isOwn ? 'text-blue-100' : 'text-gray-400'} ${message.attachment_type === 'image' ? 'px-3 pb-2' : ''}`}>
+                      {message.content && (
+                        <p className={`text-sm ${
+                          images.length > 0 || files.length > 0 ? 'px-3 pb-2' : 'px-4 py-2'
+                        }`}>
+                          {message.content}
+                        </p>
+                      )}
+                      
+                      {/* Timestamp */}
+                      <p className={`text-xs text-right ${
+                        isOwn ? 'text-blue-100' : 'text-gray-400'
+                      } ${images.length > 0 || files.length > 0 ? 'px-3 pb-2' : 'px-4 pb-2'}`}>
                         {formatTimestamp(message.created_at)}
                       </p>
                     </div>

@@ -140,18 +140,25 @@ export async function getConversations(
   }
 }
 
-// Send a message
+// Send a message with optional multiple attachments
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   content: string,
+  attachments?: Array<{
+    url: string;
+    type: 'image' | 'file';
+    name: string;
+    size: number;
+  }>,
+  // Legacy single attachment support (for backward compatibility)
   attachmentUrl?: string,
   attachmentType?: 'image' | 'file',
   attachmentName?: string,
   attachmentSize?: number
 ): Promise<ApiResponse<MessageWithSender>> {
-  // Validate content (allow empty if attachment exists)
-  if (!attachmentUrl) {
+  // Validate content (allow empty if attachments exist)
+  if (!attachments?.length && !attachmentUrl) {
     const validation = validateMessageContent(content);
     if (!validation.isValid) {
       return { data: null, error: validation.errors[0] };
@@ -165,9 +172,10 @@ export async function sendMessage(
       conversation_id: conversationId,
       sender_id: senderId,
       content: trimmedContent || '',
+      attachments: attachments || [],
     };
 
-    // Add attachment data if present
+    // Legacy single attachment support (for backward compatibility)
     if (attachmentUrl && attachmentType && attachmentName && attachmentSize) {
       messageData.attachment_url = attachmentUrl;
       messageData.attachment_type = attachmentType;

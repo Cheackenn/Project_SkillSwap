@@ -37,6 +37,7 @@ export interface Database {
           attachment_type: 'image' | 'file' | null;
           attachment_name: string | null;
           attachment_size: number | null;
+          attachments: MessageAttachment[];
         };
         Insert: {
           id?: string;
@@ -49,6 +50,7 @@ export interface Database {
           attachment_type?: 'image' | 'file' | null;
           attachment_name?: string | null;
           attachment_size?: number | null;
+          attachments?: MessageAttachment[];
         };
         Update: {
           id?: string;
@@ -61,6 +63,7 @@ export interface Database {
           attachment_type?: 'image' | 'file' | null;
           attachment_name?: string | null;
           attachment_size?: number | null;
+          attachments?: MessageAttachment[];
         };
       };
     };
@@ -106,6 +109,7 @@ export interface MessageWithSender {
   attachment_type: 'image' | 'file' | null;
   attachment_name: string | null;
   attachment_size: number | null;
+  attachments: MessageAttachment[];
   sender?: UserProfile;
 }
 
