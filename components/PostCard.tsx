@@ -374,7 +374,13 @@ export default function PostCard({
         className="bg-[#2d3f47] rounded-lg p-4 border border-[#3a4f5a] hover:border-[#5fa4c3] transition-colors cursor-pointer"
       >
         <div className="flex items-start gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#5fa4c3] to-[#4a7a8d] flex-shrink-0 flex items-center justify-center text-white font-semibold">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/profile/${post.user_id}`);
+            }}
+            className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-[#5fa4c3] to-[#4a7a8d] flex-shrink-0 flex items-center justify-center text-white font-semibold hover:opacity-80 transition-opacity"
+          >
             {post.author.avatar_url ? (
               <img
                 src={post.author.avatar_url}
@@ -385,11 +391,19 @@ export default function PostCard({
             ) : (
               <span>{post.author.avatar || initialsFromName(displayName)}</span>
             )}
-          </div>
+          </button>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-white truncate">{displayName}</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/profile/${post.user_id}`);
+                }}
+                className="font-semibold text-white truncate hover:text-[#5fa4c3] transition-colors text-left"
+              >
+                {displayName}
+              </button>
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span
@@ -402,7 +416,15 @@ export default function PostCard({
                 <span className="text-xs text-gray-400 ml-1">({post.ratings_count ?? 0})</span>
               </div>
             </div>
-            <p className="text-xs text-gray-400">@{post.author.username}</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/profile/${post.user_id}`);
+              }}
+              className="text-xs text-gray-400 hover:text-[#5fa4c3] transition-colors text-left"
+            >
+              @{post.author.username}
+            </button>
           </div>
 
           {/* ⋮ menu */}

@@ -36,9 +36,9 @@ export default function MenuPage() {
             </svg>
           </Link>
 
-          <button
-            onClick={() => router.push('/home')}
-            className="w-full text-left flex items-center justify-between p-4 hover:bg-[#2d3f47] transition-colors border-b border-[#3a4f5a]"
+          <Link
+            href="/about"
+            className="flex items-center justify-between p-4 hover:bg-[#2d3f47] transition-colors border-b border-[#3a4f5a]"
           >
             <div className="flex items-center gap-3">
               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
@@ -49,7 +49,7 @@ export default function MenuPage() {
             <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
             </svg>
-          </button>
+          </Link>
 
           <button
             onClick={() => {}}

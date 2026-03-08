@@ -34,6 +34,7 @@ function MessagesPageContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageChannelRef = useRef<RealtimeChannel | null>(null);
@@ -193,8 +194,11 @@ function MessagesPageContent() {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (shouldAutoScroll) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setShouldAutoScroll(false);
+    }
+  }, [messages, shouldAutoScroll]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,6 +291,7 @@ function MessagesPageContent() {
     setSelectedFile(null);
     setFilePreview(null);
     setSending(false);
+    setShouldAutoScroll(true); // Enable auto-scroll after sending
   };
 
   const handleBackToList = () => {
