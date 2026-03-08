@@ -1,0 +1,30 @@
+================================================================================
+QUICK FIX FOR: "violates check constraint" ERROR
+================================================================================
+
+ERROR YOU'RE SEEING:
+"Failed to send message: new row for relation "messages" violates check 
+constraint "messages_content_or_attachment_check""
+
+THE FIX:
+1. Go to Supabase Dashboard → SQL Editor
+2. Copy the SQL from "RUN_THIS_SQL_NOW.sql" file
+3. Paste and click "Run"
+4. Refresh your app
+5. Try sending files again - WORKS! ✓
+
+WHAT THE SQL DOES:
+- Adds "attachments" column for multiple files
+- Updates the constraint to allow multiple attachments
+- Adds performance index
+
+RESULT:
+✓ Send multiple files in ONE message
+✓ Beautiful collage layout (like Messenger)
+✓ Text + files together
+✓ No more errors!
+
+FILE TO RUN: RUN_THIS_SQL_NOW.sql
+TIME NEEDED: 2 minutes
+
+================================================================================

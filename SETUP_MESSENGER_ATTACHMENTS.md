@@ -1,35 +1,73 @@
 # Quick Setup: Messenger-Style Attachments
 
-## ⚠️ IMPORTANT: Run This SQL First!
+## ⚠️ CRITICAL: Fix the Database Error
 
-Before testing the new feature, you MUST run this SQL in your Supabase SQL Editor:
+You're seeing this error:
+```
+Failed to send message: new row for relation "messages" violates check constraint "messages_content_or_attachment_check"
+```
+
+This happens because the database constraint needs to be updated to support the new attachments array.
+
+## 🔧 THE FIX (Run This SQL Now!)
 
 ### Step 1: Open Supabase Dashboard
 1. Go to https://supabase.com
 2. Open your SkillSwap project
 3. Click "SQL Editor" in the left sidebar
 
-### Step 2: Run This SQL
-Copy and paste this into the SQL Editor and click "Run":
+### Step 2: Copy and Run This SQL
+Copy the ENTIRE script from `RUN_THIS_SQL_NOW.sql` or paste this:
 
 ```sql
--- Add support for multiple attachments per message
+-- Add attachments column
 ALTER TABLE messages 
 ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
 
--- Add index for better performance
+-- Drop old constraint
+ALTER TABLE messages 
+DROP CONSTRAINT IF EXISTS messages_content_or_attachment_check;
+
+-- Add new constraint that supports multiple attachments
+ALTER TABLE messages
+ADD CONSTRAINT messages_content_or_attachment_check
+CHECK (
+  (char_length(content) > 0 AND char_length(content) <= 5000) OR
+  (attachment_url IS NOT NULL) OR
+  (attachments IS NOT NULL AND jsonb_array_length(attachments) > 0)
+);
+
+-- Add index
 CREATE INDEX IF NOT EXISTS idx_messages_attachments 
 ON messages USING GIN (attachments);
-
--- Add comment
-COMMENT ON COLUMN messages.attachments IS 'Array of attachment objects with url, type, name, and size properties';
 ```
 
-### Step 3: Verify
-After running, you should see:
-```
-Success. No rows returned
-```
+### Step 3: Click "Run"
+You should see: `Success. No rows returned`
+
+### Step 4: Test Again
+1. Refresh your app
+2. Try sending those 2 images again
+3. They should now send successfully in ONE message with collage layout!
+
+## What This Fixes
+
+### The Problem
+The old constraint only checked for:
+- Text content OR
+- Single attachment (attachment_url)
+
+### The Solution
+The new constraint checks for:
+- Text content OR
+- Single attachment (attachment_url) OR
+- Multiple attachments (attachments array) ✅
+
+Now you can send:
+- Text only ✅
+- Files only ✅
+- Text + files ✅
+- Multiple files together ✅
 
 ## What Changed?
 
