@@ -31,8 +31,8 @@ function MessagesPageContent() {
   const [messageError, setMessageError] = useState<string | null>(null);
   const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ file: File; preview: string | null }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,9 +204,9 @@ function MessagesPageContent() {
     e.preventDefault();
     if (!currentUserId) return;
 
-    // Validate that we have either text or file
-    if (!messageText.trim() && !selectedFile) {
-      setMessageError('Please enter a message or select a file');
+    // Validate that we have either text or files
+    if (!messageText.trim() && selectedFiles.length === 0) {
+      setMessageError('Please enter a message or select files');
       return;
     }
 
@@ -247,49 +247,64 @@ function MessagesPageContent() {
       return;
     }
 
-    // Upload file if selected
-    let attachmentUrl: string | undefined;
-    let attachmentType: 'image' | 'file' | undefined;
-    let attachmentName: string | undefined;
-    let attachmentSize: number | undefined;
+    // If multiple files, send each as a separate message
+    if (selectedFiles.length > 0) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        // Upload file
+        const { url, error: uploadError } = await uploadMessageAttachment(file, currentUserId);
+        
+        if (uploadError || !url) {
+          setMessageError(`Failed to upload ${file.name}: ${uploadError}`);
+          setSending(false);
+          setUploading(false);
+          return;
+        }
 
-    if (selectedFile) {
-      const { url, error: uploadError } = await uploadMessageAttachment(selectedFile, currentUserId);
-      
-      if (uploadError || !url) {
-        setMessageError(uploadError || 'Failed to upload file');
+        const attachmentType = getFileType(file.type);
+        
+        // Send message with attachment
+        // Include text only with the first file
+        const content = i === 0 ? messageText : '';
+        
+        const { error: sendError } = await sendMessage(
+          conversationId,
+          currentUserId,
+          content,
+          url,
+          attachmentType,
+          file.name,
+          file.size
+        );
+
+        if (sendError) {
+          setMessageError(`Failed to send ${file.name}: ${sendError}`);
+          setSending(false);
+          setUploading(false);
+          return;
+        }
+      }
+    } else {
+      // Just text message, no attachments
+      const { error: sendError } = await sendMessage(
+        conversationId,
+        currentUserId,
+        messageText
+      );
+
+      if (sendError) {
+        setMessageError(sendError);
         setSending(false);
         setUploading(false);
         return;
       }
-
-      attachmentUrl = url;
-      attachmentType = getFileType(selectedFile.type);
-      attachmentName = selectedFile.name;
-      attachmentSize = selectedFile.size;
     }
 
     setUploading(false);
-
-    const { data, error: err } = await sendMessage(
-      conversationId, 
-      currentUserId, 
-      messageText,
-      attachmentUrl,
-      attachmentType,
-      attachmentName,
-      attachmentSize
-    );
-
-    if (err) {
-      setMessageError(err);
-      setSending(false);
-      return;
-    }
-
     setMessageText('');
-    setSelectedFile(null);
-    setFilePreview(null);
+    setSelectedFiles([]);
+    setFilePreviews([]);
     setSending(false);
     setShouldAutoScroll(true); // Enable auto-scroll after sending
   };
@@ -298,38 +313,75 @@ function MessagesPageContent() {
     setSelectedConversation(null);
     setMessages([]);
     setMessageError(null);
-    setSelectedFile(null);
-    setFilePreview(null);
+    setSelectedFiles([]);
+    setFilePreviews([]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const validation = validateFile(file);
-    if (!validation.isValid) {
-      setMessageError(validation.error || 'Invalid file');
-      return;
+    const validFiles: File[] = [];
+    const newPreviews: { file: File; preview: string | null }[] = [];
+
+    for (const file of files) {
+      const validation = validateFile(file);
+      if (!validation.isValid) {
+        setMessageError(validation.error || 'Invalid file');
+        continue;
+      }
+
+      validFiles.push(file);
+
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreviews(prev => {
+            const updated = [...prev];
+            const index = updated.findIndex(p => p.file === file);
+            if (index !== -1) {
+              updated[index] = { file, preview: reader.result as string };
+            }
+            return updated;
+          });
+        };
+        reader.readAsDataURL(file);
+        newPreviews.push({ file, preview: null });
+      } else {
+        newPreviews.push({ file, preview: null });
+      }
     }
 
-    setSelectedFile(file);
-    setMessageError(null);
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFilePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setFilePreview(null);
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+      setFilePreviews(prev => [...prev, ...newPreviews]);
+      setMessageError(null);
     }
   };
 
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setFilePreview(null);
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setFilePreviews(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      // Revoke preview URL if it exists
+      const preview = prev[index];
+      if (preview.preview && preview.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(preview.preview);
+      }
+      return updated;
+    });
+  };
+
+  const handleRemoveAllFiles = () => {
+    // Revoke all preview URLs
+    filePreviews.forEach(({ preview }) => {
+      if (preview && preview.startsWith('blob:')) {
+        URL.revokeObjectURL(preview);
+      }
+    });
+    setSelectedFiles([]);
+    setFilePreviews([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -546,39 +598,56 @@ function MessagesPageContent() {
 
           {/* Input */}
           <form onSubmit={handleSendMessage} className="bg-[#2d3f47] border-t border-[#3a4f5a] p-4 flex-shrink-0">
-            {/* File Preview */}
-            {selectedFile && (
-              <div className="mb-3 p-3 bg-[#1a2c36] rounded-lg flex items-center gap-3">
-                {filePreview ? (
-                  <img src={filePreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
-                ) : (
-                  <div className="w-16 h-16 bg-[#2d3f47] rounded flex items-center justify-center">
-                    <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                      <path d="M14 2v6h6"/>
-                    </svg>
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{selectedFile.name}</p>
-                  <p className="text-xs text-gray-400">{formatFileSize(selectedFile.size)}</p>
+            {/* Multiple Files Preview */}
+            {selectedFiles.length > 0 && (
+              <div className="mb-3 space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-300">{selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected</span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAllFiles}
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Remove all
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRemoveFile}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {filePreviews.map((item, index) => (
+                    <div key={index} className="p-2 bg-[#1a2c36] rounded-lg flex items-center gap-3">
+                      {item.preview ? (
+                        <img src={item.preview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                      ) : (
+                        <div className="w-12 h-12 bg-[#2d3f47] rounded flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                            <path d="M14 2v6h6"/>
+                          </svg>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate">{item.file.name}</p>
+                        <p className="text-xs text-gray-400">{formatFileSize(item.file.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(index)}
+                        className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             
             {/* Upload Status */}
             {uploading && (
-              <div className="mb-2 text-sm text-[#5fa4c3]">
-                Uploading file...
+              <div className="mb-2 text-sm text-[#5fa4c3] flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#5fa4c3] border-t-transparent rounded-full animate-spin" />
+                Uploading {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}...
               </div>
             )}
             
@@ -595,6 +664,7 @@ function MessagesPageContent() {
                 type="file"
                 onChange={handleFileSelect}
                 accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt"
+                multiple
                 className="hidden"
               />
               
@@ -603,11 +673,16 @@ function MessagesPageContent() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={sending || uploading}
-                className="text-gray-400 hover:text-white transition-colors p-3 disabled:opacity-50"
+                className="text-gray-400 hover:text-white transition-colors p-3 disabled:opacity-50 relative"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
+                {selectedFiles.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#5fa4c3] text-white text-xs rounded-full flex items-center justify-center">
+                    {selectedFiles.length}
+                  </span>
+                )}
               </button>
               
               <input
@@ -620,7 +695,7 @@ function MessagesPageContent() {
               />
               <button
                 type="submit"
-                disabled={(!messageText.trim() && !selectedFile) || sending || uploading}
+                disabled={(!messageText.trim() && selectedFiles.length === 0) || sending || uploading}
                 className="bg-[#5fa4c3] text-white rounded-full p-3 hover:bg-[#4a8fb5] transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? (
