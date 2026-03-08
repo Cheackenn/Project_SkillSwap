@@ -1,0 +1,43 @@
+================================================================================
+                    FIX: "Failed to load image" Error
+================================================================================
+
+YOUR ERRORS:
+1. "Failed to send message: violates check constraint"
+2. "Failed to load image" - StorageUnknownError
+
+THE FIX (2 STEPS):
+
+STEP 1: Run SQL
+---------------
+File: MASTER_SETUP_SQL.sql
+
+1. Open Supabase Dashboard
+2. Click "SQL Editor"
+3. Copy ALL of MASTER_SETUP_SQL.sql
+4. Paste and click "Run"
+5. Done!
+
+STEP 2: Test
+------------
+1. Refresh your app
+2. Delete the failed messages (optional)
+3. Send 2-3 images
+4. See them in beautiful collage! ✓
+
+WHAT IT FIXES:
+- ✓ Database constraint error
+- ✓ Storage bucket setup
+- ✓ RLS policies
+- ✓ Multiple attachments support
+- ✓ Image display
+
+RESULT:
+Multiple files in ONE message with Messenger-style collage layout!
+
+TIME NEEDED: 2 minutes
+
+================================================================================
+                        READ: FIX_ALL_ERRORS_NOW.md
+                    For detailed step-by-step instructions
+================================================================================
