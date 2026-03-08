@@ -37,7 +37,7 @@ export interface Database {
           attachment_type: 'image' | 'file' | null;
           attachment_name: string | null;
           attachment_size: number | null;
-          attachments: MessageAttachment[];
+          attachments?: MessageAttachment[];
         };
         Insert: {
           id?: string;
@@ -109,7 +109,7 @@ export interface MessageWithSender {
   attachment_type: 'image' | 'file' | null;
   attachment_name: string | null;
   attachment_size: number | null;
-  attachments: MessageAttachment[];
+  attachments?: MessageAttachment[];  // Optional for backward compatibility
   sender?: UserProfile;
 }
 

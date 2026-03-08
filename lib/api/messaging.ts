@@ -172,8 +172,12 @@ export async function sendMessage(
       conversation_id: conversationId,
       sender_id: senderId,
       content: trimmedContent || '',
-      attachments: attachments || [],
     };
+
+    // Add attachments array only if there are attachments
+    if (attachments && attachments.length > 0) {
+      messageData.attachments = attachments;
+    }
 
     // Legacy single attachment support (for backward compatibility)
     if (attachmentUrl && attachmentType && attachmentName && attachmentSize) {
@@ -191,7 +195,7 @@ export async function sendMessage(
 
     if (error) {
       console.error('Error sending message:', error);
-      return { data: null, error: 'Failed to send message' };
+      return { data: null, error: `Failed to send message: ${error.message}` };
     }
 
     return { data: data as MessageWithSender, error: null };
